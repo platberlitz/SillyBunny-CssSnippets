@@ -39,7 +39,7 @@ class Snippet {
 
 class Settings {
     static from(props) {
-        props.snippetList = props.snippetList.map(it=>Snippet.from(it));
+        props.snippetList = (props.snippetList ?? []).map(it=>Snippet.from(it));
         return Object.assign(new Settings, props);
     }
     /**@type {Snippet[]}*/ snippetList = [];
