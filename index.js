@@ -313,6 +313,9 @@ const makeSnippetDom = (snippet)=>{
                 if (snippet.isTheme) {
                     settings.themeSnippets[power_user.theme].splice(settings.themeSnippets[power_user.theme].indexOf(snippet.name), 1);
                 } else {
+                    if (!settings.themeSnippets[power_user.theme]) {
+                        settings.themeSnippets[power_user.theme] = [];
+                    }
                     settings.themeSnippets[power_user.theme].push(snippet.name);
                 }
                 save();
