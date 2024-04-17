@@ -72,16 +72,14 @@ const init = async()=>{
 
     themeLoop();
 
-    registerSlashCommand(
-        'csss',
+    registerSlashCommand('csss',
         (args, value)=>showCssManager(),
         [],
         '<span class="monospace"></span> – Show the CSS Snippet Manager.',
         true,
         true,
     );
-    registerSlashCommand(
-        'csss-on',
+    registerSlashCommand('csss-on',
         (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
@@ -99,8 +97,7 @@ const init = async()=>{
         true,
         true,
     );
-    registerSlashCommand(
-        'csss-off',
+    registerSlashCommand('csss-off',
         (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
@@ -115,6 +112,24 @@ const init = async()=>{
         },
         [],
         '<span class="monospace">(snippet name)</span> – Disable a CSS snippet.',
+        true,
+        true,
+    );
+    registerSlashCommand('csss-create',
+        (args, value)=>{
+            createSnippet(args.name, value);
+        },
+        [],
+        '<span class="monospace">[name=snippetName] (CSS)</span> – Create a new CSS snippet.',
+        true,
+        true,
+    );
+    registerSlashCommand('csss-delete',
+        (args, value)=>{
+            deleteSnippetByName(value);
+        },
+        [],
+        '<span class="monospace">(snippet name)</span> – Delete a CSS snippet.',
         true,
         true,
     );
@@ -158,10 +173,12 @@ let selectedList = [];
 let selectedCount;
 /**@type {HTMLElement} */
 let expAll;
-/**@type {Object[]} */
+/**@type {{snippet:Snippet, li:HTMLElement}[]} */
 let snippetDomMapper = [];
 /**@type {HTMLElement} */
 let collapser;
+/**@type {HTMLElement} */
+let list;
 
 const updateCss = ()=>{
     if (!style) {
@@ -340,15 +357,34 @@ const makeSnippetDom = (snippet)=>{
         const remove = li.querySelector('.csss--remove'); {
             remove.addEventListener('click', ()=>{
                 if (manager.window.confirm('Are you sure you want to delete this CSS snippet?\n\nThis cannot be undone!')) {
-                    settings.snippetList.splice(settings.snippetList.indexOf(snippet), 1);
-                    li.remove();
-                    snippetDomMapper.splice(snippetDomMapper.findIndex(it=>it.snippet == snippet), 1);
-                    save();
+                    deleteSnippet(snippet);
                 }
             });
         }
     }
     return li;
+};
+const createSnippet = (name = null, content = null)=>{
+    const snippet = new Snippet();
+    if (name !== null) snippet.name = name;
+    if (content !== null) snippet.content = content;
+    settings.snippetList.push(snippet);
+    if (manager) {
+        const li = makeSnippetDom(snippet);
+        list.append(li);
+        li.scrollIntoView();
+    }
+    save();
+};
+const deleteSnippetByName = (name)=>{
+    const snippet = settings.snippetList.find(it=>it.name == name);
+    deleteSnippet(snippet);
+};
+const deleteSnippet = (snippet)=>{
+    settings.snippetList.splice(settings.snippetList.indexOf(snippet), 1);
+    snippetDomMapper.find(it=>it.snippet == snippet).li.remove();
+    snippetDomMapper.splice(snippetDomMapper.findIndex(it=>it.snippet == snippet), 1);
+    save();
 };
 const showCssManager = async()=>{
     if (manager) {
@@ -440,7 +476,7 @@ const showCssManager = async()=>{
     });
     // @ts-ignore
     snippetTemplate = dom.querySelector('#csss--snippet').content.querySelector('.csss--snippet');
-    const list = dom.querySelector('#csss--list');
+    list = dom.querySelector('#csss--list');
     settings.snippetList.forEach(snippet=>{
         const li = makeSnippetDom(snippet);
         list.append(li);
@@ -670,14 +706,7 @@ const showCssManager = async()=>{
         }
     });
 
-    dom.querySelector('.csss--add').addEventListener('click', ()=>{
-        const snippet = new Snippet();
-        settings.snippetList.push(snippet);
-        const li = makeSnippetDom(snippet);
-        list.append(li);
-        li.scrollIntoView();
-        save();
-    });
+    dom.querySelector('.csss--add').addEventListener('click', ()=>createSnippet());
 
     if (isUnloaded) {
         console.log('[CSSS]', 'running setup again');
