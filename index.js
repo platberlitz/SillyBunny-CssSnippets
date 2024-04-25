@@ -2,7 +2,7 @@ import { eventSource, event_types, saveSettingsDebounced } from '../../../../scr
 import { extension_settings } from '../../../extensions.js';
 import { power_user } from '../../../power-user.js';
 import { registerSlashCommand } from '../../../slash-commands.js';
-import { delay, getSortableDelay } from '../../../utils.js';
+import { delay, getSortableDelay, isTrueBoolean } from '../../../utils.js';
 
 
 class Snippet {
@@ -44,7 +44,7 @@ class Settings {
     }
     /**@type {Snippet[]}*/ snippetList = [];
     // @ts-ignore
-    /**@type {Map<string,string>}*/ themeSnippets = {};
+    /**@type {Map<string,string[]>}*/ themeSnippets = {};
     // @ts-ignore
     /**@type {Map<string,Boolean>}*/ filters = {};
 }
@@ -117,10 +117,14 @@ const init = async()=>{
     );
     registerSlashCommand('csss-create',
         (args, value)=>{
-            createSnippet(args.name, value);
+            createSnippet(args.name, value, {
+                disabled: isTrueBoolean(args.disabled ?? 'false'),
+                global: isTrueBoolean(args.global ?? 'true'),
+                theme: isTrueBoolean(args.theme ?? 'false'),
+            });
         },
         [],
-        '<span class="monospace">[name=snippetName] (CSS)</span> – Create a new CSS snippet.',
+        '<span class="monospace">[name=snippetName] [optional disabled=true|false] [optional global=true|false] [optional theme=true|false] (CSS)</span> – Create a new CSS snippet.',
         true,
         true,
     );
@@ -374,10 +378,18 @@ const makeSnippetDom = (snippet)=>{
     }
     return li;
 };
-const createSnippet = (name = null, content = null)=>{
+const createSnippet = (name = null, content = null, { disabled = false, global = true, theme = false })=>{
     const snippet = new Snippet();
     if (name !== null) snippet.name = name;
     if (content !== null) snippet.content = content;
+    snippet.isDisabled = disabled;
+    snippet.isGlobal = global;
+    if (theme) {
+        if (!Object.keys(settings.themeSnippets).includes(power_user.theme)) {
+            settings.themeSnippets[power_user.theme] = [];
+        }
+        settings.themeSnippets[power_user.theme].push(snippet.name);
+    }
     settings.snippetList.push(snippet);
     if (manager) {
         const li = makeSnippetDom(snippet);
