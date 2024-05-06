@@ -2,28 +2,34 @@ import { eventSource, event_types, saveSettingsDebounced } from '../../../../scr
 import { extension_settings } from '../../../extensions.js';
 import { power_user } from '../../../power-user.js';
 import { registerSlashCommand } from '../../../slash-commands.js';
-import { delay, getSortableDelay, isTrueBoolean } from '../../../utils.js';
+import { delay, getSortableDelay, isTrueBoolean, uuidv4 } from '../../../utils.js';
 
 
 class Snippet {
-    static from(props) {
+    static from(props, settingsProps = null) {
         if (props.isTheme !== undefined) delete props.isTheme;
         if (props.isCollapsedd !== undefined) {
             props.isCollapsed = props.isCollapsedd;
             delete props.isCollapsedd;
         }
+        if (props.themeList !== undefined) {
+            props.themeList = Object.keys((settingsProps ?? settings).themeSnippets).filter(key=>(settingsProps ?? settings).themeSnippets[key]?.includes(props.name));
+        }
         return Object.assign(new this(), props);
     }
+    /**@type {String}*/ id;
     /**@type {String}*/ name = '';
     /**@type {Boolean}*/ isDisabled = false;
     /**@type {Boolean}*/ isGlobal = true;
     /**@type {String}*/ content = '';
     /**@type {Boolean}*/ isCollapsed = false;
+    /**@type {Boolean}*/ isSynced = false;
+    /**@type {Boolean}*/ isDeleted = false;
+    /**@type {number}*/ modifiedOn = 0;
+    /**@type {string[]}*/ themeList = [];
+
     get isTheme() {
         return settings.themeSnippets[power_user.theme]?.includes(this.name);
-    }
-    get themeList() {
-        return Object.keys(settings.themeSnippets).filter(key=>settings.themeSnippets[key]?.includes(this.name));
     }
     get theme() {
         return this.themeList.join(';');
@@ -36,15 +42,39 @@ class Snippet {
     }
 
     constructor(content = '', name = '') {
+        this.id = uuidv4();
         this.content = content;
         this.name = name;
     }
+
+    save(skipSync = false) {
+        this.modifiedOn = new Date().getTime();
+        if (!skipSync && this.isSynced) {
+            const data = getSynced();
+            const oldSnippet = data.find(it=>it.id == this.id);
+            if (oldSnippet) {
+                Object.assign(oldSnippet, this);
+            } else {
+                data.push(this);
+            }
+            setSynced(data);
+        }
+        save();
+    }
 }
+
+const getSynced = ()=>{
+    const data = JSON.parse(localStorage.getItem('csss--syncedList') ?? '[]');
+    return data;
+};
+const setSynced = (data)=>{
+    localStorage.setItem('csss--syncedList', JSON.stringify(data));
+};
 
 class Settings {
     static from(props) {
-        props.snippetList = (props.snippetList ?? []).map(it=>Snippet.from(it));
-        return Object.assign(new Settings, props);
+        props.snippetList = (props.snippetList ?? []).map(it=>Snippet.from(it, props));
+        return Object.assign(new Settings(), props);
     }
     /**@type {Snippet[]}*/ snippetList = [];
     // @ts-ignore
@@ -57,6 +87,20 @@ class Settings {
 const initSettings = ()=>{
     settings = Settings.from(extension_settings.cssSnippets ?? {});
     extension_settings.cssSnippets = settings;
+    const synced = getSynced();
+    for (const snippetProps of synced) {
+        const snippet = settings.snippetList.find(it=>it.id == snippetProps.id);
+        if (snippet) {
+            if (snippet.modifiedOn < snippetProps.modifiedOn) {
+                Object.assign(snippet, snippetProps);
+                snippet.save(true);
+            }
+        } else {
+            const newSnippet = Snippet.from(snippetProps);
+            settings.snippetList.push(newSnippet);
+            newSnippet.save(true);
+        }
+    }
 };
 const init = async()=>{
     initSettings();
@@ -94,7 +138,7 @@ const init = async()=>{
             if (sdm) {
                 sdm.li.querySelector('.csss--isDisabled').checked = snippet.isDisabled;
             }
-            save();
+            snippet.save();
         },
         [],
         '<span class="monospace">(snippet name)</span> – Enable a CSS snippet.',
@@ -112,7 +156,7 @@ const init = async()=>{
             if (sdm) {
                 sdm.li.querySelector('.csss--isDisabled').checked = snippet.isDisabled;
             }
-            save();
+            snippet.save();
         },
         [],
         '<span class="monospace">(snippet name)</span> – Disable a CSS snippet.',
@@ -215,9 +259,8 @@ const updateCss = ()=>{
         '/*',
         ' * === THEME SNIPPETS ===',
         ' */',
-        sanitize(settings.themeSnippets[power_user.theme]
-            ?.map(name=>settings.snippetList.find(it=>!it.isDisabled && it.name == name))
-            ?.filter(it=>it)
+        sanitize(settings.snippetList
+            ?.filter(it=>it.themeList.includes(power_user.theme) && !it.isDisabled)
             ?.map(it=>`/* SNIPPET: ${it.name} */\n${it.content}`)
             ?.join('\n\n'),
         ),
@@ -257,7 +300,7 @@ const expand = (snippet, ta) => {
                 inp.addEventListener('input', ()=>{
                     snippet.content = inp.value.trim();
                     ta.value = snippet.content;
-                    save();
+                    snippet.save();
                 });
                 body.append(inp);
             }
@@ -275,6 +318,7 @@ const expand = (snippet, ta) => {
     }
 };
 const makeSnippetDom = (snippet)=>{
+    let noSave = true;
     /**@type {HTMLElement} */
     // @ts-ignore
     const li = snippetTemplate.cloneNode(true); {
@@ -310,7 +354,7 @@ const makeSnippetDom = (snippet)=>{
                 collapser.classList.remove('fa-angles-up');
                 collapser.title = 'Uncollapse snippets';
             }
-            save();
+            if (!noSave) snippet.save();
         });
         if (snippet.isCollapsed) {
             collapseToggle.click();
@@ -322,7 +366,7 @@ const makeSnippetDom = (snippet)=>{
             name.addEventListener('input', ()=>{
                 snippet.name = name.value.trim();
                 li.setAttribute('data-csss', snippet.name);
-                save();
+                if (!noSave) snippet.save();
             });
         }
         /**@type {HTMLInputElement} */
@@ -330,7 +374,7 @@ const makeSnippetDom = (snippet)=>{
             isDisabled.checked = snippet.isDisabled;
             isDisabled.addEventListener('click', ()=>{
                 snippet.isDisabled = isDisabled.checked;
-                save();
+                if (!noSave) snippet.save();
             });
         }
         /**@type {HTMLInputElement} */
@@ -338,7 +382,15 @@ const makeSnippetDom = (snippet)=>{
             isGlobal.checked = snippet.isGlobal;
             isGlobal.addEventListener('click', ()=>{
                 snippet.isGlobal = isGlobal.checked;
-                save();
+                if (!noSave) snippet.save();
+            });
+        }
+        /**@type {HTMLInputElement} */
+        const isSynced = li.querySelector('.csss--isSynced'); {
+            isSynced.checked = snippet.isSynced;
+            isSynced.addEventListener('click', ()=>{
+                snippet.isSynced = isSynced.checked;
+                if (!noSave) snippet.save();
             });
         }
         /**@type {HTMLInputElement} */
@@ -346,14 +398,11 @@ const makeSnippetDom = (snippet)=>{
             isTheme.checked = settings.themeSnippets[power_user.theme]?.find(it=>it == snippet.name);
             isTheme.addEventListener('click', ()=>{
                 if (snippet.isTheme) {
-                    settings.themeSnippets[power_user.theme].splice(settings.themeSnippets[power_user.theme].indexOf(snippet.name), 1);
+                    snippet.themeList.splice(snippet.themeList.indexOf(power_user.theme), 1);
                 } else {
-                    if (!settings.themeSnippets[power_user.theme]) {
-                        settings.themeSnippets[power_user.theme] = [];
-                    }
-                    settings.themeSnippets[power_user.theme].push(snippet.name);
+                    snippet.themeList.push(snippet.name);
                 }
-                save();
+                if (!noSave) snippet.save();
             });
         }
         /**@type {HTMLTextAreaElement} */
@@ -362,7 +411,7 @@ const makeSnippetDom = (snippet)=>{
             content.addEventListener('paste', (evt)=>evt.stopPropagation());
             content.addEventListener('input', ()=>{
                 snippet.content = content.value.trim();
-                save();
+                if (!noSave) snippet.save();
             });
         }
         /**@type {HTMLElement} */
@@ -380,6 +429,7 @@ const makeSnippetDom = (snippet)=>{
             });
         }
     }
+    noSave = false;
     return li;
 };
 /**
@@ -406,17 +456,18 @@ const createSnippet = (name = null, content = null, { disabled, global, theme } 
         list.append(li);
         li.scrollIntoView();
     }
-    save();
+    snippet.save();
 };
 const deleteSnippetByName = (name)=>{
     const snippet = settings.snippetList.find(it=>it.name == name);
     deleteSnippet(snippet);
 };
 const deleteSnippet = (snippet)=>{
+    snippet.isDeleted = true;
     settings.snippetList.splice(settings.snippetList.indexOf(snippet), 1);
     snippetDomMapper.find(it=>it.snippet == snippet).li.remove();
     snippetDomMapper.splice(snippetDomMapper.findIndex(it=>it.snippet == snippet), 1);
-    save();
+    snippet.save();
 };
 const showCssManager = async()=>{
     if (manager) {

@@ -145,6 +145,7 @@ html > body.csss--body {
 					display: flex;
 					flex-direction: row;
 					> .csss--activeWrap {
+						display: flex;
 						> .flex-container {
 							flex-direction: row;
 							flex-wrap: nowrap;
@@ -174,11 +175,14 @@ html > body.csss--body {
 			> .csss--nameWrap {
 				flex: 0 0 auto;
 				> .csss--activeWrap {
-					display: flex;
-					flex-direction: row;
+					display: grid;
+					grid-template-columns: 1fr 1fr;
 					gap: 1em;
 					justify-content: space-between;
 					padding: 0.5em;
+					> .flex-container {
+						align-items: center;
+					}
 				}
 			}
 

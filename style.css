@@ -133,6 +133,9 @@ html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--n
   display: flex;
   flex-direction: row;
 }
+html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--nameWrap > .csss--activeWrap {
+  display: flex;
+}
 html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--nameWrap > .csss--activeWrap > .flex-container {
   flex-direction: row;
   flex-wrap: nowrap;
@@ -158,11 +161,14 @@ html > body.csss--body #csss--list > .csss--snippet > .csss--nameWrap {
   flex: 0 0 auto;
 }
 html > body.csss--body #csss--list > .csss--snippet > .csss--nameWrap > .csss--activeWrap {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1em;
   justify-content: space-between;
   padding: 0.5em;
+}
+html > body.csss--body #csss--list > .csss--snippet > .csss--nameWrap > .csss--activeWrap > .flex-container {
+  align-items: center;
 }
 html > body.csss--body #csss--list > .csss--snippet > .csss--contentWrap {
   flex: 1 1 auto;
