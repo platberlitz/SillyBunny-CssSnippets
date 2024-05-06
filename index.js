@@ -8,13 +8,17 @@ import { delay, getSortableDelay, isTrueBoolean } from '../../../utils.js';
 class Snippet {
     static from(props) {
         if (props.isTheme !== undefined) delete props.isTheme;
+        if (props.isCollapsedd !== undefined) {
+            props.isCollapsed = props.isCollapsedd;
+            delete props.isCollapsedd;
+        }
         return Object.assign(new this(), props);
     }
     /**@type {String}*/ name = '';
     /**@type {Boolean}*/ isDisabled = false;
     /**@type {Boolean}*/ isGlobal = true;
     /**@type {String}*/ content = '';
-    /**@type {Boolean}*/ isCollapsedd = false;
+    /**@type {Boolean}*/ isCollapsed = false;
     get isTheme() {
         return settings.themeSnippets[power_user.theme]?.includes(this.name);
     }
