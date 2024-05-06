@@ -736,9 +736,9 @@ const showCssManager = async()=>{
             const li = snippetDomMapper.find(it=>it.snippet == snippet).li;
             if (
                 (settings.filters.disabled && snippet.isDisabled)
-                || (settings.filters.theme && !settings.themeSnippets[power_user.theme]?.includes(snippet.name) && Object.keys(settings.themeSnippets).map(key=>settings.themeSnippets[key]).filter(it=>it.includes(snippet.name)).length > 0)
+                || (settings.filters.theme && !snippet.isTheme && snippet.themeList.length > 0)
                 || (settings.filters.global && snippet.isGlobal)
-                || (settings.filters.thisTheme && settings.themeSnippets[power_user.theme]?.includes(snippet.name))
+                || (settings.filters.thisTheme && snippet.isTheme)
             ) {
                 li.classList.add('csss--isFiltered');
             } else {
