@@ -288,6 +288,122 @@ const updateExportSelection = ()=>{
     }
 };
 
+/**
+ *
+ * @param {Snippet} snippet
+ */
+const showThemes = (snippet) => {
+    const blocker = document.createElement('div'); {
+        blocker.classList.add('csss--blocker');
+        const body = document.createElement('div'); {
+            body.classList.add('csss--body');
+            body.classList.add('csss--themes');
+            body.classList.add('drawer-content');
+            const head = document.createElement('div'); {
+                head.classList.add('csss--themesHead');
+                const h3 = document.createElement('h3'); {
+                    h3.textContent = `Snippet: "${snippet.name}"`;
+                    head.append(h3);
+                }
+                const h4 = document.createElement('h4'); {
+                    h4.textContent = ' - Themes';
+                    head.append(h4);
+                }
+                body.append(head);
+            }
+            const content = document.createElement('div'); {
+                content.classList.add('csss--themesContent');
+                const themes = [...document.querySelectorAll('#themes > option')].map(it=>it.textContent);
+                for (const theme of themes) {
+                    const item = document.createElement('label'); {
+                        item.classList.add('csss--themesItem');
+                        const cb = document.createElement('input'); {
+                            cb.type = 'checkbox';
+                            cb.checked = snippet.themeList.includes(theme);
+                            cb.addEventListener('click', ()=>{
+                                if (theme == power_user.theme) {
+                                    const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
+                                    ogCb.click();
+                                    cb.checked = ogCb.checked;
+                                } else {
+                                    if (cb.checked) {
+                                        if (!snippet.themeList.includes(theme)) {
+                                            snippet.themeList.push(theme);
+                                            snippet.save();
+                                        }
+                                    } else {
+                                        if (snippet.themeList.includes(theme)) {
+                                            snippet.themeList.splice(snippet.themeList.indexOf(theme), 1);
+                                            snippet.save();
+                                        }
+                                    }
+                                }
+                            });
+                            item.append(cb);
+                        }
+                        const lbl = document.createElement('div'); {
+                            lbl.textContent = theme;
+                            item.append(lbl);
+                        }
+                        content.append(item);
+                    }
+                }
+                let first = true;
+                for (const theme of snippet.themeList) {
+                    if (!themes.includes(theme)) {
+                        if (first) {
+                            first = false;
+                            content.append(document.createElement('hr'));
+                        }
+                        const item = document.createElement('label'); {
+                            item.classList.add('csss--themesItem');
+                            const cb = document.createElement('input'); {
+                                cb.type = 'checkbox';
+                                cb.checked = true;
+                                cb.addEventListener('click', ()=>{
+                                    if (theme == power_user.theme) {
+                                        const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
+                                        ogCb.click();
+                                        cb.checked = ogCb.checked;
+                                    } else {
+                                        if (cb.checked) {
+                                            if (!snippet.themeList.includes(theme)) {
+                                                snippet.themeList.push(theme);
+                                                snippet.save();
+                                            }
+                                        } else {
+                                            if (snippet.themeList.includes(theme)) {
+                                                snippet.themeList.splice(snippet.themeList.indexOf(theme), 1);
+                                                snippet.save();
+                                            }
+                                        }
+                                    }
+                                });
+                                item.append(cb);
+                            }
+                            const lbl = document.createElement('div'); {
+                                lbl.textContent = theme.textContent;
+                                item.append(lbl);
+                            }
+                            content.append(item);
+                        }
+                    }
+                }
+                body.append(content);
+            }
+            const ok = document.createElement('button'); {
+                ok.classList.add('csss--ok');
+                ok.textContent = 'OK';
+                ok.addEventListener('click', ()=>{
+                    blocker.remove();
+                });
+                body.append(ok);
+            }
+            blocker.append(body);
+        }
+        manager.document.body.append(blocker);
+    }
+};
 const expand = (snippet, ta) => {
     const blocker = document.createElement('div'); {
         blocker.classList.add('csss--blocker');
@@ -418,6 +534,12 @@ const makeSnippetDom = (snippet)=>{
         const max = li.querySelector('.csss--max'); {
             max.addEventListener('click', ()=>{
                 expand(snippet, content);
+            });
+        }
+        /**@type {HTMLElement} */
+        const themes = li.querySelector('.csss--themes'); {
+            themes.addEventListener('click', ()=>{
+                showThemes(snippet);
             });
         }
         /**@type {HTMLElement} */

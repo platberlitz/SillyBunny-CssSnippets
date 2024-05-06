@@ -151,6 +151,9 @@ html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--a
   flex-direction: row;
   gap: 0.5em;
 }
+html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--actionsWrap > .csss--themes {
+  display: none;
+}
 html > body.csss--body #csss--list > .csss--snippet > .csss--dragWrap {
   flex: 0 0 auto;
 }
@@ -189,7 +192,7 @@ html > body.csss--body > .csss--blocker {
 }
 html > body.csss--body > .csss--blocker > .csss--body {
   position: absolute;
-  inset: 1em;
+  inset: 0;
   width: unset;
   min-width: unset;
   max-width: unset;
@@ -213,5 +216,19 @@ html > body.csss--body > .csss--filterMenu > .csss--item {
   flex-direction: row;
   gap: 0.5em;
   padding: 0.5em;
+  align-items: baseline;
+}
+.csss--themes .csss--themesHead {
+  display: flex;
+  gap: 1em;
+  align-items: baseline;
+}
+.csss--themes .csss--themesContent {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+.csss--themes .csss--themesItem {
+  display: flex;
+  gap: 0.5em;
   align-items: baseline;
 }

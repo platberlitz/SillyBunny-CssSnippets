@@ -162,6 +162,9 @@ html > body.csss--body {
 					display: flex;
 					flex-direction: row;
 					gap: 0.5em;
+					> .csss--themes {
+						display: none;
+					}
 				}
 			}
 
@@ -209,7 +212,7 @@ html > body.csss--body {
 
 		> .csss--body {
 			position: absolute;
-			inset: 1em;
+			inset: 0;
 			width: unset;
 			min-width: unset;
 			max-width: unset;
@@ -237,5 +240,22 @@ html > body.csss--body {
 			padding: 0.5em;
 			align-items: baseline;
 		}
+	}
+}
+
+.csss--themes {
+	.csss--themesHead {
+		display: flex;
+		gap: 1em;
+		align-items: baseline;
+	}
+	.csss--themesContent {
+		flex: 1 1 auto;
+		overflow: auto;
+	}
+	.csss--themesItem {
+		display: flex;
+		gap: 0.5em;
+		align-items: baseline;
 	}
 }
