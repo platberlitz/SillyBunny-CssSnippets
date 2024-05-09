@@ -596,6 +596,7 @@ const showCssManager = async()=>{
         manager.focus();
         return;
     }
+    while (snippetDomMapper.pop());
     manager = window.open(
         `${location.protocol}//${location.host}/scripts/extensions/third-party/SillyTavern-CssSnippets/html/manager.html`,
         'snippetManager',
