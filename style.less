@@ -219,9 +219,15 @@ html > body.csss--body {
 			min-height: unset;
 			max-height: unset;
 			gap: 0.5em;
-			display: grid;
-			overflow: hidden;
-			grid-template-rows: 1fr 0fr;
+			&.csss--expand {
+				display: grid;
+				overflow: hidden;
+				grid-template-rows: 1fr 0fr;
+			}
+			&.csss--themes {
+				display: flex;
+				flex-direction: column;
+			}
 
 			> .csss--input {
 				flex: 1 1 auto;

@@ -409,6 +409,7 @@ const expand = (snippet, ta) => {
         blocker.classList.add('csss--blocker');
         const body = document.createElement('div'); {
             body.classList.add('csss--body');
+            body.classList.add('csss--expand');
             body.classList.add('drawer-content');
             let synIn;
             const syn = document.createElement('pre'); {

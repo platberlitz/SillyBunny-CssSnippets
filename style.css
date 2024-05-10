@@ -200,9 +200,15 @@ html > body.csss--body > .csss--blocker > .csss--body {
   min-height: unset;
   max-height: unset;
   gap: 0.5em;
+}
+html > body.csss--body > .csss--blocker > .csss--body.csss--expand {
   display: grid;
   overflow: hidden;
   grid-template-rows: 1fr 0fr;
+}
+html > body.csss--body > .csss--blocker > .csss--body.csss--themes {
+  display: flex;
+  flex-direction: column;
 }
 html > body.csss--body > .csss--blocker > .csss--body > .csss--input {
   flex: 1 1 auto;
