@@ -29,7 +29,7 @@ class Snippet {
     /**@type {string[]}*/ themeList = [];
 
     get isTheme() {
-        return settings.themeSnippets[power_user.theme]?.includes(this.name);
+        return this.themeList.includes(power_user.theme);
     }
     get theme() {
         return this.themeList.join(';');
@@ -40,6 +40,9 @@ class Snippet {
     get title() {
         return this.name;
     }
+    get wasSynced() {
+        return getSynced().find(it=>it.id == this.id && it.isSynced);
+    }
 
     constructor(content = '', name = '') {
         this.id = uuidv4();
@@ -49,7 +52,7 @@ class Snippet {
 
     save(skipSync = false) {
         this.modifiedOn = new Date().getTime();
-        if (!skipSync && this.isSynced) {
+        if (!skipSync && (this.isSynced || this.wasSynced)) {
             const data = getSynced();
             const oldSnippet = data.find(it=>it.id == this.id);
             if (oldSnippet) {
@@ -91,11 +94,23 @@ const initSettings = ()=>{
     for (const snippetProps of synced) {
         const snippet = settings.snippetList.find(it=>it.id == snippetProps.id);
         if (snippet) {
-            if (snippet.modifiedOn < snippetProps.modifiedOn) {
-                Object.assign(snippet, snippetProps);
-                snippet.save(true);
+            if (!snippetProps.isSynced) {
+                if (snippet.isSynced) {
+                    snippet.isSynced = false;
+                    snippet.save();
+                }
+                continue;
             }
-        } else {
+            if (snippet.modifiedOn < snippetProps.modifiedOn) {
+                if (snippetProps.isDeleted) {
+                    settings.snippetList.splice(settings.snippetList.indexOf(snippet), 1);
+                    snippet.save();
+                } else {
+                    Object.assign(snippet, snippetProps);
+                    snippet.save(true);
+                }
+            }
+        } else if (snippetProps.isSynced && !snippetProps.isDeleted) {
             const newSnippet = Snippet.from(snippetProps);
             settings.snippetList.push(newSnippet);
             newSnippet.save(true);
@@ -603,6 +618,10 @@ const deleteSnippetByName = (name)=>{
     const snippet = settings.snippetList.find(it=>it.name == name);
     deleteSnippet(snippet);
 };
+/**
+ *
+ * @param {Snippet} snippet
+ */
 const deleteSnippet = (snippet)=>{
     snippet.isDeleted = true;
     settings.snippetList.splice(settings.snippetList.indexOf(snippet), 1);
