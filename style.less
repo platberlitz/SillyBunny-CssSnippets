@@ -159,12 +159,10 @@ html > body.csss--body {
 					display: none;
 				}
 				> .csss--actionsWrap {
-					display: flex;
-					flex-direction: row;
-					gap: 0.5em;
-					> .csss--themes {
-						display: none;
-					}
+					// display: flex;
+					// flex-direction: row;
+					// gap: 0.5em;
+					grid-template-columns: 1fr 1fr 1fr 1fr;
 				}
 			}
 
@@ -193,6 +191,23 @@ html > body.csss--body {
 				flex: 1 1 auto;
 				display: grid;
 				overflow: hidden;
+			}
+
+			> .csss--actionsWrap {
+				align-self: flex-start;
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				column-gap: 0.5em;
+				> .csss--action {
+					width: 100%;
+				}
+				> .csss--ide.csss--isWatching {
+					animation-name: csss--pulse;
+					animation-duration: 2s;
+					animation-timing-function: linear;
+					animation-delay: 0s;
+					animation-iteration-count: infinite;
+				}
 			}
 		}
 	}
@@ -293,6 +308,9 @@ html > body.csss--body {
 		width: 0;
 		min-height: 100%;
 		height: 0;
+		&:has(~ .csss--content:disabled) > .csss--contentSyntaxInner {
+			opacity: 0.5;
+		}
 		> .csss--contentSyntaxInner {
 			background-color: #1f1f1f;
 			height: 100%;
@@ -315,6 +333,20 @@ html > body.csss--body {
 	}
 	.csss--content {
 		height: calc(6em * 1.2);
+		&:disabled {
+			opacity: 0.5;
+		}
+	}
+}
+@keyframes csss--pulse {
+	0% {
+		filter: invert(0);
+	}
+	50% {
+		filter: invert(1);
+	}
+	100% {
+		filter: invert(0);
 	}
 }
 

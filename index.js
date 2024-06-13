@@ -1,4 +1,4 @@
-import { eventSource, event_types, saveSettingsDebounced } from '../../../../script.js';
+import { eventSource, event_types, getRequestHeaders, saveSettingsDebounced } from '../../../../script.js';
 import { extension_settings } from '../../../extensions.js';
 import { power_user } from '../../../power-user.js';
 import { registerSlashCommand } from '../../../slash-commands.js';
@@ -10,6 +10,7 @@ import { debounce, delay, getSortableDelay, isTrueBoolean, uuidv4 } from '../../
 
 class Snippet {
     static from(props, settingsProps = null) {
+        props.isWatching = false;
         if (props.isTheme !== undefined) delete props.isTheme;
         if (props.isCollapsedd !== undefined) {
             props.isCollapsed = props.isCollapsedd;
@@ -30,6 +31,7 @@ class Snippet {
     /**@type {Boolean}*/ isDeleted = false;
     /**@type {number}*/ modifiedOn = 0;
     /**@type {string[]}*/ themeList = [];
+    /**@type {boolean}*/ isWatching = false;
 
     get isTheme() {
         return this.themeList.includes(power_user.theme);
@@ -66,6 +68,90 @@ class Snippet {
             setSynced(data);
         }
         save();
+    }
+
+    async stopEditLocally() {
+        const watchResponse = await fetch('/api/plugins/files/unwatch', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                path: this.localPath,
+            }),
+        });
+        if (!watchResponse.ok) {
+            alert('something went wrong');
+            return;
+        }
+        this.isWatching = false;
+    }
+    async editLocally() {
+        const path = `~/user/CustomCSS/${uuidv4()}.${this.name.replace(/[^a-z0-9_. ]+/gi, '-')}.css`;
+
+        // save snippet to file
+        const blob = new Blob([this.content], { type:'text' });
+        const reader = new FileReader();
+        const prom = new Promise(resolve=>reader.addEventListener('load', resolve));
+        reader.readAsDataURL(blob);
+        await prom;
+        const putResponse = await fetch('/api/plugins/files/put', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                path,
+                file: reader.result,
+            }),
+        });
+        if (!putResponse.ok) {
+            alert('something went wrong');
+            return;
+        }
+        const finalPath = `~/user/CustomCSS/${(await putResponse.json()).name}`;
+        this.localPath = finalPath;
+
+        // launch snippet file in local editor
+        const openResponse = await fetch('/api/plugins/files/open', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                path: finalPath,
+            }),
+        });
+        if (!openResponse.ok) {
+            alert('something went wrong');
+            return;
+        }
+
+        // watch snippet file
+        this.isWatching = true;
+        while (this.isWatching) {
+            const watchResponse = await fetch('/api/plugins/files/watch', {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                body: JSON.stringify({
+                    path: finalPath,
+                }),
+            });
+            if (!watchResponse.ok) {
+                alert('something went wrong');
+                return;
+            }
+            this.content = await watchResponse.text();
+            const ta = snippetDomMapper.find(it=>it.snippet == this).li.querySelector('.csss--content');
+            ta.value = this.content;
+            ta.dispatchEvent(new Event('input', { bubbles:true }));
+            this.save();
+        }
+        const delResponse = await fetch('/api/plugins/files/delete', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                path: finalPath,
+            }),
+        });
+        if (!delResponse.ok) {
+            alert('something went wrong');
+            return;
+        }
     }
 }
 
@@ -122,6 +208,7 @@ const initSettings = ()=>{
 };
 const init = async()=>{
     initSettings();
+    hasFilesPlugin = (await fetch('/api/plugins/files', { method:'HEAD' })).ok;
     const h4 = document.querySelector('#CustomCSS-block > h4');
     const btn = document.createElement('span'); {
         btn.classList.add('csss--trigger');
@@ -284,6 +371,8 @@ let snippetDomMapper = [];
 let collapser;
 /**@type {HTMLElement} */
 let list;
+/**@type {Boolean} */
+let hasFilesPlugin = false;
 
 const sanitize = (css)=>{
     const style = document.createElement('style');
@@ -609,6 +698,25 @@ const makeSnippetDom = (snippet)=>{
             });
         }
         /**@type {HTMLElement} */
+        const ide = li.querySelector('.csss--ide'); {
+            if (!hasFilesPlugin) ide.replaceWith(document.createElement('div'));
+            else {
+                ide.addEventListener('click', async()=>{
+                    if (snippet.isWatching) {
+                        console.log('[CSSS]', 'UNWATCHING');
+                        await snippet.stopEditLocally();
+                        return;
+                    }
+                    console.log('[CSSS]', 'WATCHING');
+                    ide.classList.add('csss--isWatching');
+                    content.disabled = true;
+                    await snippet.editLocally();
+                    content.disabled = false;
+                    ide.classList.remove('csss--isWatching');
+                });
+            }
+        }
+        /**@type {HTMLElement} */
         const themes = li.querySelector('.csss--themes'); {
             themes.addEventListener('click', ()=>{
                 showThemes(snippet);
@@ -702,6 +810,7 @@ const showCssManager = async()=>{
     manager.addEventListener('unload', (evt)=>{
         console.log('[CSSS]', 'UNLOAD (no action)', evt);
         isUnloaded = true;
+        settings.snippetList.filter(it=>it.isWatching).forEach(it=>it.stopEditLocally());
     });
     if (!manager) return;
     const setup = ()=>{

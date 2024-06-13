@@ -148,12 +148,7 @@ html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--c
   display: none;
 }
 html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--actionsWrap {
-  display: flex;
-  flex-direction: row;
-  gap: 0.5em;
-}
-html > body.csss--body #csss--list > .csss--snippet.csss--isCollapsed > .csss--actionsWrap > .csss--themes {
-  display: none;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
 }
 html > body.csss--body #csss--list > .csss--snippet > .csss--dragWrap {
   flex: 0 0 auto;
@@ -178,6 +173,22 @@ html > body.csss--body #csss--list > .csss--snippet > .csss--contentWrap {
   flex: 1 1 auto;
   display: grid;
   overflow: hidden;
+}
+html > body.csss--body #csss--list > .csss--snippet > .csss--actionsWrap {
+  align-self: flex-start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 0.5em;
+}
+html > body.csss--body #csss--list > .csss--snippet > .csss--actionsWrap > .csss--action {
+  width: 100%;
+}
+html > body.csss--body #csss--list > .csss--snippet > .csss--actionsWrap > .csss--ide.csss--isWatching {
+  animation-name: csss--pulse;
+  animation-duration: 2s;
+  animation-timing-function: linear;
+  animation-delay: 0s;
+  animation-iteration-count: infinite;
 }
 html > body.csss--body .csss--listActions {
   display: flex;
@@ -266,6 +277,9 @@ html > body.csss--body .csss--contentSyntax {
   min-height: 100%;
   height: 0;
 }
+html > body.csss--body .csss--contentSyntax:has(~ .csss--content:disabled) > .csss--contentSyntaxInner {
+  opacity: 0.5;
+}
 html > body.csss--body .csss--contentSyntax > .csss--contentSyntaxInner {
   background-color: #1f1f1f;
   height: 100%;
@@ -295,4 +309,18 @@ html > body.csss--body .csss--input::selection {
 }
 html > body.csss--body .csss--content {
   height: calc(6em * 1.2);
+}
+html > body.csss--body .csss--content:disabled {
+  opacity: 0.5;
+}
+@keyframes csss--pulse {
+  0% {
+    filter: invert(0);
+  }
+  50% {
+    filter: invert(1);
+  }
+  100% {
+    filter: invert(0);
+  }
 }
