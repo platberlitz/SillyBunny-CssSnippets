@@ -44,8 +44,6 @@ const initSettings = ()=>{
     }
 };
 const init = async()=>{
-    initSettings();
-    hasFilesPlugin = (await fetch('/api/plugins/files', { method:'HEAD' })).ok;
     const h4 = document.querySelector('#CustomCSS-block > h4');
     const btn = document.createElement('span'); {
         btn.classList.add('csss--trigger');
@@ -57,6 +55,8 @@ const init = async()=>{
         btn.addEventListener('click', ()=>showCssManager());
         h4.append(btn);
     }
+    initSettings();
+    hasFilesPlugin = (await fetch('/api/plugins/files', { method:'HEAD' })).ok;
     updateCss();
     addEventListener('beforeunload', ()=>manager?.close());
 
