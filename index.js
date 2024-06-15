@@ -1,5 +1,6 @@
-import { saveSettingsDebounced } from '../../../../script.js';
-import { extension_settings } from '../../../extensions.js';
+import { characters, getCurrentChatId, saveSettingsDebounced } from '../../../../script.js';
+import { extension_settings, getContext } from '../../../extensions.js';
+import { groups } from '../../../group-chats.js';
 import { power_user } from '../../../power-user.js';
 import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../../slash-commands/SlashCommandArgument.js';
@@ -173,16 +174,17 @@ const init = async()=>{
 };
 const themeLoop = async()=>{
     let theme = power_user.theme;
+    let chat = getContext().characterId ?? getContext().groupId;
     while (true) {
-        if (theme != power_user.theme) {
+        if (theme != power_user.theme || chat != (getContext().characterId ?? getContext().groupId)) {
             theme = power_user.theme;
+            chat = getContext().characterId ?? getContext().groupId;
             updateCss();
             if (manager) {
-                Array.from(manager.document.querySelectorAll('[data-csss]')).forEach(li=>{
-                    const name = li.getAttribute('data-csss');
-                    // @ts-ignore
-                    li.querySelector('.csss--isTheme').checked = settings.themeSnippets[power_user.theme]?.find(it=>it == name);
-                });
+                for (const snippet of settings.snippetList) {
+                    /**@type {HTMLInputElement}*/(snippet.li.querySelector('.csss--isTheme')).checked = snippet.isTheme;
+                    /**@type {HTMLInputElement}*/(snippet.li.querySelector('.csss--isChat')).checked = snippet.isChat;
+                }
             }
         }
         await delay(500);
@@ -232,13 +234,14 @@ const updateCss = ()=>{
         style.id = 'csss--css-snippets';
         document.head.append(style);
     }
+    const snips = [];
     style.innerHTML = [
         '/*',
         ' * === GLOBAL SNIPPETS ===',
         ' */',
         sanitize(settings.snippetList
-            .filter(it=>!it.isDisabled && it.isGlobal)
-            .map(it=>`/* SNIPPET: ${it.name} */\n${it.content}`)
+            .filter(it=>!snips.includes(it) && !it.isDisabled && it.isGlobal)
+            .map(it=>(snips.push(it),`/* SNIPPET: ${it.name} */\n${it.content}`))
             .join('\n\n'),
         ),
         '\n\n\n\n',
@@ -246,8 +249,17 @@ const updateCss = ()=>{
         ' * === THEME SNIPPETS ===',
         ' */',
         sanitize(settings.snippetList
-            ?.filter(it=>it.themeList.includes(power_user.theme) && !it.isDisabled)
-            ?.map(it=>`/* SNIPPET: ${it.name} */\n${it.content}`)
+            ?.filter(it=>!snips.includes(it) && it.isTheme && (it.isChat || it.charList.length + it.groupList.length == 0) && !it.isDisabled)
+            ?.map(it=>(snips.push(it),`/* SNIPPET: ${it.name} */\n${it.content}`))
+            ?.join('\n\n'),
+        ),
+        '\n\n\n\n',
+        '/*',
+        ' * === CHAT SNIPPETS ===',
+        ' */',
+        sanitize(settings.snippetList
+            ?.filter(it=>!snips.includes(it) && it.isChat && (it.isTheme || it.themeList.length == 0) && !it.isDisabled)
+            ?.map(it=>(snips.push(it),`/* SNIPPET: ${it.name} */\n${it.content}`))
             ?.join('\n\n'),
         ),
     ].join('\n');
@@ -287,61 +299,23 @@ const showThemes = (snippet) => {
                     h3.textContent = `Snippet: "${snippet.name}"`;
                     head.append(h3);
                 }
-                const h4 = document.createElement('h4'); {
-                    h4.textContent = ' - Themes';
-                    head.append(h4);
-                }
                 body.append(head);
             }
-            const content = document.createElement('div'); {
-                content.classList.add('csss--themesContent');
-                const themes = [...document.querySelectorAll('#themes > option')].map(it=>it.textContent);
-                for (const theme of themes) {
-                    const item = document.createElement('label'); {
-                        item.classList.add('csss--themesItem');
-                        const cb = document.createElement('input'); {
-                            cb.type = 'checkbox';
-                            cb.checked = snippet.themeList.includes(theme);
-                            cb.addEventListener('click', ()=>{
-                                if (theme == power_user.theme) {
-                                    const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
-                                    ogCb.click();
-                                    cb.checked = ogCb.checked;
-                                } else {
-                                    if (cb.checked) {
-                                        if (!snippet.themeList.includes(theme)) {
-                                            snippet.themeList.push(theme);
-                                            snippet.save();
-                                        }
-                                    } else {
-                                        if (snippet.themeList.includes(theme)) {
-                                            snippet.themeList.splice(snippet.themeList.indexOf(theme), 1);
-                                            snippet.save();
-                                        }
-                                    }
-                                }
-                            });
-                            item.append(cb);
-                        }
-                        const lbl = document.createElement('div'); {
-                            lbl.textContent = theme;
-                            item.append(lbl);
-                        }
-                        content.append(item);
-                    }
+            const contentContainer = document.createElement('div'); {
+                contentContainer.classList.add('csss--themesContent');
+                const h4 = document.createElement('h4'); {
+                    h4.textContent = 'Themes';
+                    contentContainer.append(h4);
                 }
-                let first = true;
-                for (const theme of snippet.themeList) {
-                    if (!themes.includes(theme)) {
-                        if (first) {
-                            first = false;
-                            content.append(document.createElement('hr'));
-                        }
+                const content = document.createElement('div'); {
+                    // content.classList.add('csss--themesContent');
+                    const themes = [...document.querySelectorAll('#themes > option')].map(it=>it.textContent);
+                    for (const theme of themes) {
                         const item = document.createElement('label'); {
                             item.classList.add('csss--themesItem');
                             const cb = document.createElement('input'); {
                                 cb.type = 'checkbox';
-                                cb.checked = true;
+                                cb.checked = snippet.themeList.includes(theme);
                                 cb.addEventListener('click', ()=>{
                                     if (theme == power_user.theme) {
                                         const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
@@ -364,14 +338,134 @@ const showThemes = (snippet) => {
                                 item.append(cb);
                             }
                             const lbl = document.createElement('div'); {
-                                lbl.textContent = theme.textContent;
+                                lbl.textContent = theme;
                                 item.append(lbl);
                             }
                             content.append(item);
                         }
                     }
+                    let first = true;
+                    for (const theme of snippet.themeList) {
+                        if (!themes.includes(theme)) {
+                            if (first) {
+                                first = false;
+                                content.append(document.createElement('hr'));
+                            }
+                            const item = document.createElement('label'); {
+                                item.classList.add('csss--themesItem');
+                                const cb = document.createElement('input'); {
+                                    cb.type = 'checkbox';
+                                    cb.checked = true;
+                                    cb.addEventListener('click', ()=>{
+                                        if (theme == power_user.theme) {
+                                            const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
+                                            ogCb.click();
+                                            cb.checked = ogCb.checked;
+                                        } else {
+                                            if (cb.checked) {
+                                                if (!snippet.themeList.includes(theme)) {
+                                                    snippet.themeList.push(theme);
+                                                    snippet.save();
+                                                }
+                                            } else {
+                                                if (snippet.themeList.includes(theme)) {
+                                                    snippet.themeList.splice(snippet.themeList.indexOf(theme), 1);
+                                                    snippet.save();
+                                                }
+                                            }
+                                        }
+                                    });
+                                    item.append(cb);
+                                }
+                                const lbl = document.createElement('div'); {
+                                    lbl.textContent = theme.textContent;
+                                    item.append(lbl);
+                                }
+                                content.append(item);
+                            }
+                        }
+                    }
+                    contentContainer.append(content);
                 }
-                body.append(content);
+
+                contentContainer.append(document.createElement('hr'));
+                const h4Chats = document.createElement('h4'); {
+                    h4Chats.textContent = 'Chats';
+                    contentContainer.append(h4Chats);
+                }
+                const contentChats = document.createElement('div'); {
+                    // contentChats.classList.add('csss--themesContent');
+                    for (const char of snippet.charList) {
+                        const item = document.createElement('label'); {
+                            item.classList.add('csss--themesItem');
+                            const cb = document.createElement('input'); {
+                                cb.type = 'checkbox';
+                                cb.checked = true;
+                                cb.addEventListener('click', ()=>{
+                                    if (char == characters[getContext().characterId]?.avatar) {
+                                        const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
+                                        ogCb.click();
+                                        cb.checked = ogCb.checked;
+                                    } else {
+                                        if (cb.checked) {
+                                            if (!snippet.charList.includes(char)) {
+                                                snippet.charList.push(char);
+                                                snippet.save();
+                                            }
+                                        } else {
+                                            if (snippet.charList.includes(char)) {
+                                                snippet.charList.splice(snippet.charList.indexOf(char), 1);
+                                                snippet.save();
+                                            }
+                                        }
+                                    }
+                                });
+                                item.append(cb);
+                            }
+                            const lbl = document.createElement('div'); {
+                                lbl.textContent = `Char: ${characters.find(it=>it.avatar == char)?.name ?? 'DELETED'} (${char})`;
+                                item.append(lbl);
+                            }
+                            contentChats.append(item);
+                        }
+                    }
+                    for (const char of snippet.groupList) {
+                        const item = document.createElement('label'); {
+                            item.classList.add('csss--themesItem');
+                            const cb = document.createElement('input'); {
+                                cb.type = 'checkbox';
+                                cb.checked = true;
+                                cb.addEventListener('click', ()=>{
+                                    if (char == groups.find(it=>it.id == getContext().groupId)) {
+                                        const ogCb = snippetDomMapper.find(it=>it.snippet == snippet).li.querySelector('csss--isTheme');
+                                        ogCb.click();
+                                        cb.checked = ogCb.checked;
+                                    } else {
+                                        if (cb.checked) {
+                                            if (!snippet.groupList.includes(char)) {
+                                                snippet.groupList.push(char);
+                                                snippet.save();
+                                            }
+                                        } else {
+                                            if (snippet.groupList.includes(char)) {
+                                                snippet.groupList.splice(snippet.groupList.indexOf(char), 1);
+                                                snippet.save();
+                                            }
+                                        }
+                                    }
+                                });
+                                item.append(cb);
+                            }
+                            const lbl = document.createElement('div'); {
+                                lbl.textContent = `Group: ${groups.find(it=>it.id == char)?.name ?? 'DELETED'} (${char})`;
+                                item.append(lbl);
+                            }
+                            contentChats.append(item);
+                        }
+                    }
+                    contentContainer.append(contentChats);
+                }
+                body.append(contentContainer);
             }
             const ok = document.createElement('button'); {
                 ok.classList.add('csss--ok');
@@ -430,11 +524,12 @@ const expand = (snippet, ta) => {
         manager.document.body.append(blocker);
     }
 };
+/**
+ * @param {Snippet} snippet
+ */
 const makeSnippetDom = (snippet)=>{
     let noSave = true;
-    /**@type {HTMLElement} */
-    // @ts-ignore
-    const li = snippetTemplate.cloneNode(true); {
+    const li = /**@type {HTMLElement} */(snippetTemplate.cloneNode(true)); {
         li.snippet = snippet;
         snippet.li = li;
         snippetDomMapper.push({ snippet, li });
@@ -510,12 +605,37 @@ const makeSnippetDom = (snippet)=>{
         /**@type {HTMLInputElement} */
         const isTheme = li.querySelector('.csss--isTheme'); {
             isTheme.checked = snippet.isTheme;
+            isTheme.parentElement.classList[snippet.themeList.length ? 'add' : 'remove']('csss--isUsed');
             isTheme.addEventListener('click', ()=>{
                 if (snippet.isTheme) {
                     snippet.themeList.splice(snippet.themeList.indexOf(power_user.theme), 1);
                 } else {
                     snippet.themeList.push(power_user.theme);
                 }
+                if (!noSave) snippet.save();
+                isTheme.parentElement.classList[snippet.themeList.length ? 'add' : 'remove']('csss--isUsed');
+            });
+        }
+        /**@type {HTMLInputElement} */
+        const isChat = li.querySelector('.csss--isChat'); {
+            isChat.checked = snippet.isChat;
+            isChat.parentElement.classList[snippet.charList.length + snippet.groupList.length ? 'add' : 'remove']('csss--isUsed');
+            isChat.addEventListener('click', (evt)=>{
+                if (getCurrentChatId() == null) return evt.preventDefault();
+                if (snippet.isChat) {
+                    if (getContext().characterId != null) {
+                        snippet.charList.splice(snippet.charList.indexOf(characters[getContext().characterId].avatar), 1);
+                    } else if (getContext().groupId != null) {
+                        snippet.groupList.splice(snippet.groupList.indexOf(getContext().groupId), 1);
+                    }
+                } else {
+                    if (getContext().characterId != null) {
+                        snippet.charList.push(characters[getContext().characterId].avatar);
+                    } else if (getContext().groupId != null) {
+                        snippet.groupList.push(getContext().groupId);
+                    }
+                }
+                isChat.parentElement.classList[snippet.charList.length + snippet.groupList.length ? 'add' : 'remove']('csss--isUsed');
                 if (!noSave) snippet.save();
             });
         }

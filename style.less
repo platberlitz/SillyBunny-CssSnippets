@@ -179,12 +179,15 @@ html > body.csss--body {
 				flex: 0 0 auto;
 				> .csss--activeWrap {
 					display: grid;
-					grid-template-columns: 1fr 1fr;
+					grid-template-columns: 1fr 1fr 1fr;
 					gap: 1em;
 					justify-content: space-between;
 					padding: 0.5em;
 					> .flex-container {
 						align-items: center;
+						&.csss--isUsed > .csss--text {
+							color: var(--SmartThemeQuoteColor);
+						}
 					}
 				}
 			}

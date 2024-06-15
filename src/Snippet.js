@@ -1,4 +1,5 @@
-import { getRequestHeaders } from '../../../../../script.js';
+import { characters, getRequestHeaders, this_chid } from '../../../../../script.js';
+import { getContext } from '../../../../extensions.js';
 import { power_user } from '../../../../power-user.js';
 import { uuidv4 } from '../../../../utils.js';
 import { Settings } from './Settings.js';
@@ -38,12 +39,17 @@ export class Snippet {
     /**@type {Boolean}*/ isDeleted = false;
     /**@type {number}*/ modifiedOn = 0;
     /**@type {string[]}*/ themeList = [];
+    /**@type {string[]}*/ charList = [];
+    /**@type {string[]}*/ groupList = [];
     /**@type {boolean}*/ isWatching = false;
 
     /**@type {HTMLElement}*/ li;
 
     get isTheme() {
         return this.themeList.includes(power_user.theme);
+    }
+    get isChat() {
+        return this.charList.includes(characters[getContext().characterId]?.avatar) || this.groupList.includes(getContext().groupId);
     }
     get theme() {
         return this.themeList.join(';');
@@ -82,6 +88,8 @@ export class Snippet {
             isDeleted: this.isDeleted,
             modifiedOn: this.modifiedOn,
             themeList: this.themeList,
+            charList: this.charList,
+            groupList: this.groupList,
         };
     }
 
