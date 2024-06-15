@@ -1,185 +1,21 @@
-import { eventSource, event_types, getRequestHeaders, saveSettingsDebounced } from '../../../../script.js';
+import { saveSettingsDebounced } from '../../../../script.js';
 import { extension_settings } from '../../../extensions.js';
 import { power_user } from '../../../power-user.js';
-import { registerSlashCommand } from '../../../slash-commands.js';
 import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../../slash-commands/SlashCommandArgument.js';
 import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
-import { debounce, delay, getSortableDelay, isTrueBoolean, uuidv4 } from '../../../utils.js';
+import { debounce, delay, getSortableDelay, isTrueBoolean } from '../../../utils.js';
+import { Settings } from './src/Settings.js';
+import { Snippet } from './src/Snippet.js';
 
 
-class Snippet {
-    static from(props, settingsProps = null) {
-        props.isWatching = false;
-        if (props.isTheme !== undefined) delete props.isTheme;
-        if (props.isCollapsedd !== undefined) {
-            props.isCollapsed = props.isCollapsedd;
-            delete props.isCollapsedd;
-        }
-        if (props.themeList === undefined) {
-            props.themeList = Object.keys((settingsProps ?? settings).themeSnippets).filter(key=>(settingsProps ?? settings).themeSnippets[key]?.includes(props.name));
-        }
-        return Object.assign(new this(), props);
-    }
-    /**@type {String}*/ id;
-    /**@type {String}*/ name = '';
-    /**@type {Boolean}*/ isDisabled = false;
-    /**@type {Boolean}*/ isGlobal = true;
-    /**@type {String}*/ content = '';
-    /**@type {Boolean}*/ isCollapsed = false;
-    /**@type {Boolean}*/ isSynced = false;
-    /**@type {Boolean}*/ isDeleted = false;
-    /**@type {number}*/ modifiedOn = 0;
-    /**@type {string[]}*/ themeList = [];
-    /**@type {boolean}*/ isWatching = false;
-
-    get isTheme() {
-        return this.themeList.includes(power_user.theme);
-    }
-    get theme() {
-        return this.themeList.join(';');
-    }
-    get css() {
-        return this.content;
-    }
-    get title() {
-        return this.name;
-    }
-    get wasSynced() {
-        return getSynced().find(it=>it.id == this.id && it.isSynced);
-    }
-
-    constructor(content = '', name = '') {
-        this.id = uuidv4();
-        this.content = content;
-        this.name = name;
-    }
-
-    save(skipSync = false) {
-        this.modifiedOn = new Date().getTime();
-        if (!skipSync && (this.isSynced || this.wasSynced)) {
-            const data = getSynced();
-            const oldSnippet = data.find(it=>it.id == this.id);
-            if (oldSnippet) {
-                Object.assign(oldSnippet, this);
-            } else {
-                data.push(this);
-            }
-            setSynced(data);
-        }
-        save();
-    }
-
-    async stopEditLocally() {
-        const watchResponse = await fetch('/api/plugins/files/unwatch', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path: this.localPath,
-            }),
-        });
-        if (!watchResponse.ok) {
-            alert('something went wrong');
-            return;
-        }
-        this.isWatching = false;
-    }
-    async editLocally() {
-        const path = `~/user/CustomCSS/${uuidv4()}.${this.name.replace(/[^a-z0-9_. ]+/gi, '-')}.css`;
-
-        // save snippet to file
-        const blob = new Blob([this.content], { type:'text' });
-        const reader = new FileReader();
-        const prom = new Promise(resolve=>reader.addEventListener('load', resolve));
-        reader.readAsDataURL(blob);
-        await prom;
-        const putResponse = await fetch('/api/plugins/files/put', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path,
-                file: reader.result,
-            }),
-        });
-        if (!putResponse.ok) {
-            alert('something went wrong');
-            return;
-        }
-        const finalPath = `~/user/CustomCSS/${(await putResponse.json()).name}`;
-        this.localPath = finalPath;
-
-        // launch snippet file in local editor
-        const openResponse = await fetch('/api/plugins/files/open', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path: finalPath,
-            }),
-        });
-        if (!openResponse.ok) {
-            alert('something went wrong');
-            return;
-        }
-
-        // watch snippet file
-        this.isWatching = true;
-        while (this.isWatching) {
-            const watchResponse = await fetch('/api/plugins/files/watch', {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                body: JSON.stringify({
-                    path: finalPath,
-                }),
-            });
-            if (!watchResponse.ok) {
-                alert('something went wrong');
-                return;
-            }
-            this.content = await watchResponse.text();
-            const ta = snippetDomMapper.find(it=>it.snippet == this).li.querySelector('.csss--content');
-            ta.value = this.content;
-            ta.dispatchEvent(new Event('input', { bubbles:true }));
-            this.save();
-        }
-        const delResponse = await fetch('/api/plugins/files/delete', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path: finalPath,
-            }),
-        });
-        if (!delResponse.ok) {
-            alert('something went wrong');
-            return;
-        }
-    }
-}
-
-const getSynced = ()=>{
-    const data = JSON.parse(localStorage.getItem('csss--syncedList') ?? '[]');
-    return data;
-};
-const setSynced = (data)=>{
-    localStorage.setItem('csss--syncedList', JSON.stringify(data));
-};
-
-class Settings {
-    static from(props) {
-        props.snippetList = (props.snippetList ?? []).map(it=>Snippet.from(it, props));
-        return Object.assign(new Settings(), props);
-    }
-    /**@type {Snippet[]}*/ snippetList = [];
-    // @ts-ignore
-    /**@type {Map<string,string[]>}*/ themeSnippets = {};
-    // @ts-ignore
-    /**@type {Map<string,Boolean>}*/ filters = {};
-}
 
 
 const initSettings = ()=>{
     settings = Settings.from(extension_settings.cssSnippets ?? {});
     extension_settings.cssSnippets = settings;
-    const synced = getSynced();
+    settings.onCssChanged = ()=>updateCss();
+    const synced = settings.getSynced();
     for (const snippetProps of synced) {
         const snippet = settings.snippetList.find(it=>it.id == snippetProps.id);
         if (snippet) {
@@ -200,7 +36,7 @@ const initSettings = ()=>{
                 }
             }
         } else if (snippetProps.isSynced && !snippetProps.isDeleted) {
-            const newSnippet = Snippet.from(snippetProps);
+            const newSnippet = Snippet.from(settings, snippetProps);
             settings.snippetList.push(newSnippet);
             newSnippet.save(true);
         }
@@ -242,6 +78,7 @@ const init = async()=>{
                 sdm.li.querySelector('.csss--isDisabled').checked = snippet.isDisabled;
             }
             snippet.save();
+            return '';
         },
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({ description: 'name of the snippet to enable',
@@ -264,6 +101,7 @@ const init = async()=>{
                 sdm.li.querySelector('.csss--isDisabled').checked = snippet.isDisabled;
             }
             snippet.save();
+            return '';
         },
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({ description: 'name of the snippet to disable',
@@ -274,12 +112,17 @@ const init = async()=>{
         helpString: 'Disable a CSS snippet.',
     }));
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'csss-create',
+        /**
+         * @param {{name:string, disabled:string, global:string, theme:string}} args
+         * @param {*} value
+         */
         callback: (args, value)=>{
             createSnippet(args.name, value, {
                 disabled: isTrueBoolean(args.disabled ?? 'false'),
                 global: isTrueBoolean(args.global ?? 'true'),
                 theme: isTrueBoolean(args.theme ?? 'false'),
             });
+            return '';
         },
         namedArgumentList: [
             SlashCommandNamedArgument.fromProps({ name: 'name',
@@ -317,6 +160,7 @@ const init = async()=>{
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'csss-delete',
         callback: (args, value)=>{
             deleteSnippetByName(value);
+            return '';
         },
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({ description: 'name of the snippet to delete',
@@ -410,10 +254,6 @@ const updateCss = ()=>{
     if (managerStyle) {
         managerStyle.innerHTML = style.innerHTML;
     }
-};
-const save = ()=>{
-    saveSettingsDebounced();
-    updateCss();
 };
 
 const updateExportSelection = ()=>{
@@ -596,6 +436,7 @@ const makeSnippetDom = (snippet)=>{
     // @ts-ignore
     const li = snippetTemplate.cloneNode(true); {
         li.snippet = snippet;
+        snippet.li = li;
         snippetDomMapper.push({ snippet, li });
         li.setAttribute('data-csss', snippet.name);
         li.addEventListener('click', ()=>{
@@ -741,7 +582,7 @@ const makeSnippetDom = (snippet)=>{
  * @param {{disabled?:boolean, global?:boolean, theme?:boolean}} options
  */
 const createSnippet = (name = null, content = null, { disabled, global, theme } = {})=>{
-    const snippet = new Snippet();
+    const snippet = new Snippet(settings);
     if (name !== null) snippet.name = name;
     if (content !== null) snippet.content = content;
     snippet.isDisabled = disabled ?? false;
@@ -778,7 +619,7 @@ const deleteSnippet = (snippet)=>{
 const showCssManager = async()=>{
     if (manager) {
         manager.focus();
-        return;
+        return '';
     }
     while (snippetDomMapper.pop());
     manager = window.open(
@@ -812,7 +653,7 @@ const showCssManager = async()=>{
         isUnloaded = true;
         settings.snippetList.filter(it=>it.isWatching).forEach(it=>it.stopEditLocally());
     });
-    if (!manager) return;
+    if (!manager) return '';
     const setup = ()=>{
         manager.document.title = 'SillyTavern CSS Snippets';
         manager.document.head.parentElement.setAttribute('style', document.head.parentElement.getAttribute('style'));
@@ -884,10 +725,10 @@ const showCssManager = async()=>{
     const importSnippets = (text)=>{
         const snippets = [];
         try {
-            snippets.push(...JSON.parse(text));
+            snippets.push(Snippet.from(settings, text));
         } catch {
             // if not JSON, treat as plain CSS
-            snippets.push(new Snippet(text));
+            snippets.push(new Snippet(settings, text));
         }
 
         let jumped = false;
@@ -1084,7 +925,7 @@ const showCssManager = async()=>{
                         cb.checked = settings.filters[filter.key];
                         cb.addEventListener('click', ()=>{
                             settings.filters[filter.key] = cb.checked;
-                            save();
+                            settings.save();
                             applyFilter();
                         });
                         item.append(cb);
@@ -1095,6 +936,11 @@ const showCssManager = async()=>{
             });
             manager.document.body.append(filterMenu);
         }
+    });
+
+    const settingsBtn = dom.querySelector('#csss--settings');
+    settingsBtn.addEventListener('click', ()=>{
+        settings.toggle(dom);
     });
 
     dom.querySelector('.csss--add').addEventListener('click', ()=>createSnippet());
@@ -1114,6 +960,7 @@ const showCssManager = async()=>{
     };
     onUnloadBound = onUnload.bind(this);
     manager.addEventListener('unload', onUnloadBound);
+    return '';
 };
 
 
