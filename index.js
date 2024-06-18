@@ -378,7 +378,7 @@ const showThemes = (snippet) => {
                                     item.append(cb);
                                 }
                                 const lbl = document.createElement('div'); {
-                                    lbl.textContent = theme.textContent;
+                                    lbl.textContent = theme;
                                     item.append(lbl);
                                 }
                                 content.append(item);
