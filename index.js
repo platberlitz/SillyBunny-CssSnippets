@@ -845,7 +845,7 @@ const showCssManager = async()=>{
     const importSnippets = (text)=>{
         const snippets = [];
         try {
-            snippets.push(Snippet.from(settings, text));
+            snippets.push(...JSON.parse(text).map(it=>Snippet.from(settings, it)));
         } catch {
             // if not JSON, treat as plain CSS
             snippets.push(new Snippet(settings, text));
