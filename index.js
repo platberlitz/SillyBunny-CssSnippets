@@ -75,7 +75,7 @@ const init = async()=>{
         callback: (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
-                toastr.warning(`No such snippet: ${value}`);
+                if (!isTrueFlag(args.quiet)) toastr.warning(`No such snippet: ${value}`);
                 return '';
             }
             snippet.isDisabled = false;
@@ -86,6 +86,13 @@ const init = async()=>{
             snippet.save();
             return '';
         },
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({ name: 'quiet',
+                description: 'no warning if snippet does not exist',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                defaultValue: 'false',
+            }),
+        ],
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({ description: 'name of the snippet to enable',
                 typeList: [ARGUMENT_TYPE.STRING],
@@ -99,7 +106,7 @@ const init = async()=>{
         callback: (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
-                toastr.warning(`No such snippet: ${value}`);
+                if (!isTrueFlag(args.quiet)) toastr.warning(`No such snippet: ${value}`);
                 return '';
             }
             snippet.isDisabled = true;
@@ -110,6 +117,13 @@ const init = async()=>{
             snippet.save();
             return '';
         },
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({ name: 'quiet',
+                description: 'no warning if snippet does not exist',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                defaultValue: 'false',
+            }),
+        ],
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({ description: 'name of the snippet to disable',
                 typeList: [ARGUMENT_TYPE.STRING],
@@ -167,9 +181,21 @@ const init = async()=>{
     }));
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'csss-delete',
         callback: (args, value)=>{
+            const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
+            if (!snippet) {
+                if (!isTrueFlag(args.quiet)) toastr.warning(`No such snippet: ${value}`);
+                return '';
+            }
             deleteSnippetByName(value);
             return '';
         },
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({ name: 'quiet',
+                description: 'no warning if snippet does not exist',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                defaultValue: 'false',
+            }),
+        ],
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({ description: 'name of the snippet to delete',
                 typeList: [ARGUMENT_TYPE.STRING],
@@ -183,7 +209,7 @@ const init = async()=>{
         callback: (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
-                toastr.warning(`No such snippet: ${value}`);
+                if (!isTrueFlag(args.quiet)) toastr.warning(`No such snippet: ${value}`);
                 return '';
             }
             if (isTrueFlag(args.all)) {
@@ -193,6 +219,11 @@ const init = async()=>{
             }
         },
         namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({ name: 'quiet',
+                description: 'no warning if snippet does not exist',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                defaultValue: 'false',
+            }),
             SlashCommandNamedArgument.fromProps({ name: 'all',
                 description: 'get all snippet properties as a dictionary',
                 typeList: [ARGUMENT_TYPE.BOOLEAN],
@@ -235,7 +266,7 @@ const init = async()=>{
         callback: (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == args.name.toLowerCase());
             if (!snippet) {
-                toastr.warning(`No such snippet: ${args.name}`);
+                if (!isTrueFlag(args.quiet)) toastr.warning(`No such snippet: ${args.name}`);
                 return '';
             }
             if (args.disabled !== undefined) {
@@ -286,6 +317,11 @@ const init = async()=>{
                 description: 'whether the snippet is for the current theme',
                 typeList: [ARGUMENT_TYPE.BOOLEAN],
                 enumList: ['true', 'false'],
+                defaultValue: 'false',
+            }),
+            SlashCommandNamedArgument.fromProps({ name: 'quiet',
+                description: 'no warning if snippet does not exist',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
                 defaultValue: 'false',
             }),
         ],
