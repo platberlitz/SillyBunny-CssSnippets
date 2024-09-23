@@ -4,10 +4,15 @@ import { groups } from '../../../group-chats.js';
 import { power_user } from '../../../power-user.js';
 import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../../slash-commands/SlashCommandArgument.js';
+import { SlashCommandEnumValue } from '../../../slash-commands/SlashCommandEnumValue.js';
 import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
 import { debounce, delay, getSortableDelay, isTrueBoolean } from '../../../utils.js';
 import { Settings } from './src/Settings.js';
 import { Snippet } from './src/Snippet.js';
+
+function isTrueFlag(value) {
+    return isTrueBoolean((value ?? 'false') || 'true');
+}
 
 
 
@@ -71,7 +76,7 @@ const init = async()=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
                 toastr.warning(`No such snippet: ${value}`);
-                return;
+                return '';
             }
             snippet.isDisabled = false;
             const sdm = snippetDomMapper.find(it=>it.snippet == snippet);
@@ -85,6 +90,7 @@ const init = async()=>{
             SlashCommandArgument.fromProps({ description: 'name of the snippet to enable',
                 typeList: [ARGUMENT_TYPE.STRING],
                 isRequired: true,
+                enumProvider: ()=>settings.snippetList.map(it=>new SlashCommandEnumValue(it.name)),
             }),
         ],
         helpString: 'Enable a CSS snippet.',
@@ -94,7 +100,7 @@ const init = async()=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
             if (!snippet) {
                 toastr.warning(`No such snippet: ${value}`);
-                return;
+                return '';
             }
             snippet.isDisabled = true;
             const sdm = snippetDomMapper.find(it=>it.snippet == snippet);
@@ -108,6 +114,7 @@ const init = async()=>{
             SlashCommandArgument.fromProps({ description: 'name of the snippet to disable',
                 typeList: [ARGUMENT_TYPE.STRING],
                 isRequired: true,
+                enumProvider: ()=>settings.snippetList.map(it=>new SlashCommandEnumValue(it.name)),
             }),
         ],
         helpString: 'Disable a CSS snippet.',
@@ -167,9 +174,143 @@ const init = async()=>{
             SlashCommandArgument.fromProps({ description: 'name of the snippet to delete',
                 typeList: [ARGUMENT_TYPE.STRING],
                 isRequired: true,
+                enumProvider: ()=>settings.snippetList.map(it=>new SlashCommandEnumValue(it.name)),
             }),
         ],
         helpString: 'Delete a CSS snippet.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'csss-get',
+        callback: (args, value)=>{
+            const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == value.toLowerCase());
+            if (!snippet) {
+                toastr.warning(`No such snippet: ${value}`);
+                return '';
+            }
+            if (isTrueFlag(args.all)) {
+                return JSON.stringify(snippet);
+            } else {
+                return snippet.content;
+            }
+        },
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({ name: 'all',
+                description: 'get all snippet properties as a dictionary',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                defaultValue: 'false',
+            }),
+        ],
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({ description: 'name of the snippet to retrieve',
+                isRequired: true,
+                enumProvider: ()=>settings.snippetList.map(it=>new SlashCommandEnumValue(it.name)),
+            }),
+        ],
+        returns: 'snippet content or dictionary with snippet properties',
+        helpString: `
+            <div>
+                Retrieves a CSS snippet's content.
+            </div>
+            <div>
+                Call with <code>all=</code> to retrieve all of the snippet's properties as a
+                dictionary instead.
+            </div>
+            <div>
+                <strong>Examples:</strong>
+                <ul>
+                    <li>
+                        <pre><code class="language-stscript">/csss-get My Snippet |\n/echo</code></pre>
+                    </li>
+                    <li>
+                        <pre><code class="language-stscript">/csss-get all= My Snippet |\n/echo</code></pre>
+                    </li>
+                </ul>
+            </div>
+        `,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'csss-update',
+        /**
+         * @param {{name:string, disabled:string, global:string, theme:string}} args
+         * @param {*} value
+         */
+        callback: (args, value)=>{
+            const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == args.name.toLowerCase());
+            if (!snippet) {
+                toastr.warning(`No such snippet: ${args.name}`);
+                return '';
+            }
+            if (args.disabled !== undefined) {
+                snippet.isDisabled = isTrueBoolean(args.disabled ?? 'false');
+            }
+            if (args.global !== undefined) {
+                snippet.isGlobal = isTrueBoolean(args.global ?? 'true');
+            }
+            if (args.theme !== undefined) {
+                if (isTrueBoolean(args.theme ?? 'false')) {
+                    if (!snippet.themeList.includes(power_user.theme)) {
+                        snippet.themeList.push(power_user.theme);
+                        snippet.save();
+                    }
+                } else {
+                    if (snippet.themeList.includes(power_user.theme)) {
+                        snippet.themeList.splice(snippet.themeList.indexOf(power_user.theme), 1);
+                        snippet.save();
+                    }
+                }
+            }
+            if (value?.trim()?.length) {
+                snippet.content = value;
+            }
+            snippet.save();
+            return '';
+        },
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({ name: 'name',
+                description: 'name of the snippet',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: true,
+                enumProvider: ()=>settings.snippetList.map(it=>new SlashCommandEnumValue(it.name)),
+            }),
+            SlashCommandNamedArgument.fromProps({ name: 'disabled',
+                description: 'whether the snippet is disabled',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumList: ['true', 'false'],
+                defaultValue: 'false',
+            }),
+            SlashCommandNamedArgument.fromProps({ name: 'global',
+                description: 'whether the snippet is global',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumList: ['true', 'false'],
+                defaultValue: 'true',
+            }),
+            SlashCommandNamedArgument.fromProps({ name: 'theme',
+                description: 'whether the snippet is for the current theme',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumList: ['true', 'false'],
+                defaultValue: 'false',
+            }),
+        ],
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({ description: 'CSS content',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: true,
+            }),
+        ],
+        helpString: `
+            <div>
+                Update a CSS snippet.
+            </div>
+            <div>
+                <strong>Examples:</strong>
+                <ul>
+                    <li>
+                        <pre><code class="language-stscript">/csss-update name="My Snippet" * { color: red; }</code></pre>
+                    </li>
+                    <li>
+                        <pre><code class="language-stscript">/csss-update name="My Snippet" theme=true</code></pre>
+                    </li>
+                </ul>
+            </div>
+        `,
     }));
 };
 const themeLoop = async()=>{
@@ -732,8 +873,11 @@ const deleteSnippetByName = (name)=>{
 const deleteSnippet = (snippet)=>{
     snippet.isDeleted = true;
     settings.snippetList.splice(settings.snippetList.indexOf(snippet), 1);
-    snippetDomMapper.find(it=>it.snippet == snippet).li.remove();
-    snippetDomMapper.splice(snippetDomMapper.findIndex(it=>it.snippet == snippet), 1);
+    const sdm = snippetDomMapper.find(it=>it.snippet == snippet);
+    if (sdm) {
+        sdm.li?.remove();
+        snippetDomMapper.splice(snippetDomMapper.indexOf(sdm), 1);
+    }
     snippet.save();
 };
 const showCssManager = async()=>{
