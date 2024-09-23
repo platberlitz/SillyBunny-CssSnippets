@@ -260,12 +260,20 @@ const init = async()=>{
     }));
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'csss-update',
         /**
-         * @param {{name:string, disabled:string, global:string, theme:string}} args
+         * @param {{name:string, disabled:string, global:string, theme:string, quiet:string, create:string}} args
          * @param {*} value
          */
         callback: (args, value)=>{
             const snippet = settings.snippetList.find(it=>it.name.toLowerCase() == args.name.toLowerCase());
             if (!snippet) {
+                if (isTrueFlag(args.create)) {
+                    createSnippet(args.name, value, {
+                        disabled: isTrueBoolean(args.disabled ?? 'false'),
+                        global: isTrueBoolean(args.global ?? 'true'),
+                        theme: isTrueBoolean(args.theme ?? 'false'),
+                    });
+                    return '';
+                }
                 if (!isTrueFlag(args.quiet)) toastr.warning(`No such snippet: ${args.name}`);
                 return '';
             }
@@ -317,6 +325,11 @@ const init = async()=>{
                 description: 'whether the snippet is for the current theme',
                 typeList: [ARGUMENT_TYPE.BOOLEAN],
                 enumList: ['true', 'false'],
+                defaultValue: 'false',
+            }),
+            SlashCommandNamedArgument.fromProps({ name: 'create',
+                description: 'create the snippet if it does not exist',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
                 defaultValue: 'false',
             }),
             SlashCommandNamedArgument.fromProps({ name: 'quiet',
