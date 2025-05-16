@@ -7,8 +7,51 @@ import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '
 import { SlashCommandEnumValue } from '../../../slash-commands/SlashCommandEnumValue.js';
 import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
 import { debounce, delay, getSortableDelay, isTrueBoolean } from '../../../utils.js';
+
+import './lib/prism-code-editor/prism/languages/css.js';
+import { highlightText } from './lib/prism-code-editor/prism/index.js';
+import { createEditor } from './lib/prism-code-editor/index.js';
+import { highlightBracketPairs } from './lib/prism-code-editor/extensions/matchBrackets/highlight.js';
+import { matchBrackets } from './lib/prism-code-editor/extensions/matchBrackets/index.js';
+import { indentGuides } from './lib/prism-code-editor/extensions/guides.js';
+import { defaultCommands } from './lib/prism-code-editor/extensions/commands.js';
+import { autoComplete, registerCompletions, fuzzyFilter } from './lib/prism-code-editor/extensions/autocomplete/index.js';
+import { cursorPosition } from './lib/prism-code-editor/extensions/cursor.js';
+import { cssCompletion } from './lib/prism-code-editor/extensions/autocomplete/css/index.js';
+
 import { Settings } from './src/Settings.js';
 import { Snippet } from './src/Snippet.js';
+
+
+const NAME = new URL(import.meta.url).pathname.split('/').at(-2);
+const watchCss = async()=>{
+    try {
+        const FilesPluginApi = (await import('../SillyTavern-FilesPluginApi/api.js')).FilesPluginApi;
+        // watch CSS for changes
+        const style = document.createElement('style');
+        document.body.append(style);
+        const path = [
+            '~',
+            'extensions',
+            NAME,
+            'style.css',
+        ].join('/');
+        const mStyle = document.createElement('style');
+        if (manager) manager.document.body.append(mStyle);
+        const ev = await FilesPluginApi.watch(path);
+        ev.addEventListener('message', async(/**@type {boolean}*/exists)=>{
+            if (!exists) return;
+            style.innerHTML = await (await FilesPluginApi.get(path)).text();
+            document.querySelector(`#third-party_${NAME}-css`)?.remove();
+            mStyle.innerHTML = style.innerHTML;
+            if (manager) {
+                manager.document.body.append(mStyle);
+                manager.document.querySelector(`#third-party_${NAME}-css`)?.remove();
+            }
+        });
+    } catch { /* empty */ }
+};
+watchCss();
 
 function isTrueFlag(value) {
     return isTrueBoolean((value ?? 'false') || 'true');
@@ -482,7 +525,6 @@ const showThemes = (snippet) => {
         const body = document.createElement('div'); {
             body.classList.add('csss--body');
             body.classList.add('csss--themes');
-            body.classList.add('drawer-content');
             const head = document.createElement('div'); {
                 head.classList.add('csss--themesHead');
                 const h3 = document.createElement('h3'); {
@@ -670,41 +712,32 @@ const showThemes = (snippet) => {
         manager.document.body.append(blocker);
     }
 };
+/**
+ *
+ * @param {Snippet} snippet
+ * @param {HTMLElement} ta
+ */
 const expand = (snippet, ta) => {
+    /**@type {import('./lib/prism-code-editor/types.js').PrismEditor} */
+    let editor;
     const blocker = document.createElement('div'); {
         blocker.classList.add('csss--blocker');
         const body = document.createElement('div'); {
             body.classList.add('csss--body');
             body.classList.add('csss--expand');
-            body.classList.add('drawer-content');
-            let synIn;
-            const syn = document.createElement('pre'); {
-                syn.classList.add('csss--contentSyntax');
-                synIn = document.createElement('code'); {
-                    synIn.classList.add('csss--contentSyntaxInner');
-                    synIn.classList.add('hljs');
-                    synIn.classList.add('language-css');
-                    syn.append(synIn);
-                }
-                body.append(syn);
+            const content = document.createElement('div'); {
+                content.classList.add('csss--editor');
+                editor = manager.window.createEditor(content, snippet);
+                body.append(content);
             }
-            const inp = document.createElement('textarea'); {
-                inp.classList.add('csss--input');
-                inp.value = snippet.content;
-                inp.spellcheck = false;
-                inp.addEventListener('input', ()=>{
-                    snippet.content = inp.value.trim();
-                    ta.value = snippet.content;
-                    snippet.save();
-                });
-                body.append(inp);
-            }
-            addTabSupport(inp);
-            addSyntaxHighlight(inp, synIn, 'css');
             const ok = document.createElement('button'); {
                 ok.classList.add('csss--ok');
                 ok.textContent = 'OK';
                 ok.addEventListener('click', ()=>{
+                    snippet.content = editor.value;
+                    snippet.save();
+                    ta.innerHTML = highlightText(snippet.content, 'css');
+                    editor.remove();
                     blocker.remove();
                 });
                 body.append(ok);
@@ -829,23 +862,16 @@ const makeSnippetDom = (snippet)=>{
                 if (!noSave) snippet.save();
             });
         }
-        /**@type {HTMLTextAreaElement} */
-        const content = li.querySelector('.csss--content'); {
-            content.value = snippet.content;
-            content.addEventListener('paste', (evt)=>evt.stopPropagation());
-            content.addEventListener('input', ()=>{
-                snippet.content = content.value.trim();
-                if (!noSave) snippet.save();
-            });
-        }
         /**@type {HTMLElement} */
         const contentSyntaxInner = li.querySelector('.csss--contentSyntaxInner');
-        addTabSupport(content);
-        addSyntaxHighlight(content, contentSyntaxInner, 'css');
+        contentSyntaxInner.innerHTML = highlightText(snippet.content, 'css');
+        contentSyntaxInner.addEventListener('click', (evt)=>{
+            expand(snippet, contentSyntaxInner);
+        });
         /**@type {HTMLElement} */
         const max = li.querySelector('.csss--max'); {
             max.addEventListener('click', ()=>{
-                expand(snippet, content);
+                expand(snippet, contentSyntaxInner);
             });
         }
         /**@type {HTMLElement} */
@@ -1009,6 +1035,60 @@ const showCssManager = async()=>{
         });
     `;
     dom.append(sortableScript);
+    const editorScript = manager.document.createElement('script');
+    editorScript.type = 'module';
+    editorScript.innerHTML = `
+        import './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/prism/languages/css.js';
+        import { highlightText } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/prism/index.js';
+        import { createEditor } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/index.js';
+        import { highlightBracketPairs } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/matchBrackets/highlight.js';
+        import { matchBrackets } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/matchBrackets/index.js';
+        import { indentGuides } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/guides.js';
+        import { defaultCommands } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/commands.js';
+        import { autoComplete, registerCompletions, fuzzyFilter } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/autocomplete/index.js';
+        import { cursorPosition } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/cursor.js';
+        import { cssCompletion } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/autocomplete/css/index.js';
+
+        /**
+         *
+         * @param {HTMLElement} content
+         * @param {Snippet} snippet
+         */
+        window.createEditor = (content, snippet)=>{
+            registerCompletions(['css'], {
+                sources: [cssCompletion()],
+            });
+            return createEditor(
+                content,
+                {
+                    value: snippet.content,
+
+                    insertSpaces: false,
+                    language: 'css',
+                    lineNumbers: true,
+                    readOnly: false,
+                    tabSize: 4,
+                    wordWrap: false,
+                    onUpdate: (value)=>{
+                        snippet.content = value;
+                        snippet.save();
+                    },
+                },
+                highlightBracketPairs(),
+                matchBrackets(true),
+                indentGuides(),
+                defaultCommands(),
+                cursorPosition(),
+                autoComplete({
+                    filter: fuzzyFilter,
+                    closeOnBlur: true,
+                    explicitOnly: false,
+                    preferAbove: true,
+                }),
+            );
+        };
+    `;
+    dom.append(editorScript);
 
     collapser = dom.querySelector('#csss--collapse');
     collapser.addEventListener('click', ()=>{
