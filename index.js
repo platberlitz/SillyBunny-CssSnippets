@@ -104,7 +104,10 @@ const init = async()=>{
         h4.append(btn);
     }
     initSettings();
-    hasFilesPlugin = (await fetch('/api/plugins/files', { method:'HEAD' })).ok;
+    try {
+        FilesPluginApi = (await import('../SillyTavern-FilesPluginApi/api.js')).FilesPluginApi;
+        hasFilesPlugin = true;
+    } catch { /* empty */ }
     updateCss();
     addEventListener('beforeunload', ()=>manager?.close());
 
@@ -452,6 +455,8 @@ let collapser;
 let list;
 /**@type {Boolean} */
 let hasFilesPlugin = false;
+/**@type {typeof import('../SillyTavern-FilesPluginApi/api.js').FilesPluginApi} */
+export let FilesPluginApi;
 
 const sanitize = (css)=>{
     const style = document.createElement('style');
@@ -886,9 +891,7 @@ const makeSnippetDom = (snippet)=>{
                     }
                     console.log('[CSSS]', 'WATCHING');
                     ide.classList.add('csss--isWatching');
-                    content.disabled = true;
                     await snippet.editLocally();
-                    content.disabled = false;
                     ide.classList.remove('csss--isWatching');
                 });
             }

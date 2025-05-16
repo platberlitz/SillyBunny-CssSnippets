@@ -1,7 +1,9 @@
 import { characters, getRequestHeaders, this_chid } from '../../../../../script.js';
 import { getContext } from '../../../../extensions.js';
 import { power_user } from '../../../../power-user.js';
-import { uuidv4 } from '../../../../utils.js';
+import { delay, uuidv4 } from '../../../../utils.js';
+import { FilesPluginApi } from '../index.js';
+import { highlightText } from '../lib/prism-code-editor/prism/index.js';
 import { Settings } from './Settings.js';
 
 export class Snippet {
@@ -109,87 +111,50 @@ export class Snippet {
     }
 
     async stopEditLocally() {
-        const response = await fetch('/api/plugins/files/unwatch', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path: this.localPath,
-            }),
-        });
-        if (!response.ok) {
-            alert('something went wrong');
-            return;
+        try {
+            await FilesPluginApi.unwatch(this.localPath);
+        } catch (ex) {
+            alert(ex?.message ?? 'something went wrong');
         }
         this.isWatching = false;
     }
     async editLocally() {
         const path = `~/user/CustomCSS/${uuidv4()}.${this.name.replace(/[^a-z0-9_. ]+/gi, '-')}.css`;
 
-        // save snippet to file
-        const blob = new Blob([this.content], { type:'text' });
-        const reader = new FileReader();
-        const prom = new Promise(resolve=>reader.addEventListener('load', resolve));
-        reader.readAsDataURL(blob);
-        await prom;
-        const putResponse = await fetch('/api/plugins/files/put', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path,
-                file: reader.result,
-            }),
-        });
-        if (!putResponse.ok) {
-            alert('something went wrong');
-            return;
-        }
-        const finalPath = `~/user/CustomCSS/${(await putResponse.json()).name}`;
-        this.localPath = finalPath;
+        try {
+            // save snippet to file
+            const blob = new Blob([this.content], { type:'text' });
+            const reader = new FileReader();
+            const prom = new Promise(resolve=>reader.addEventListener('load', resolve));
+            reader.readAsDataURL(blob);
+            await prom;
+            const result = await FilesPluginApi.put(path, { file:/**@type {string}*/(reader.result) });
+            const finalPath = `~/user/CustomCSS/${result.name}`;
+            this.localPath = finalPath;
 
-        // launch snippet file in local editor
-        const openResponse = await fetch('/api/plugins/files/open', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path: finalPath,
-            }),
-        });
-        if (!openResponse.ok) {
-            alert('something went wrong');
-            return;
-        }
+            // launch snippet file in local editor
+            await FilesPluginApi.open(finalPath);
 
-        // watch snippet file
-        this.isWatching = true;
-        while (this.isWatching) {
-            const watchResponse = await fetch('/api/plugins/files/watch', {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                body: JSON.stringify({
-                    path: finalPath,
-                    interval: this.settings.watchInterval,
-                }),
+            // watch snippet file
+            this.isWatching = true;
+            const ev = await FilesPluginApi.watch(finalPath);
+            ev.addEventListener('message', async(/**@type {boolean}*/exists)=>{
+                if (exists) {
+                    this.content = await (await FilesPluginApi.get(finalPath)).text();
+                    this.li.querySelector('code').innerHTML = highlightText(this.content, 'css');
+                    this.save();
+                }
             });
-            if (!watchResponse.ok) {
-                alert('something went wrong');
-                return;
+
+            // wait for stop watching
+            while (this.isWatching) {
+                await delay(1000);
             }
-            this.content = await watchResponse.text();
-            const ta = this.li.querySelector('.csss--content');
-            ta.value = this.content;
-            ta.dispatchEvent(new Event('input', { bubbles:true }));
-            this.save();
-        }
-        const delResponse = await fetch('/api/plugins/files/delete', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                path: finalPath,
-            }),
-        });
-        if (!delResponse.ok) {
-            alert('something went wrong');
-            return;
+
+            // delete snippet file
+            await FilesPluginApi.delete(finalPath);
+        } catch (ex) {
+            alert(ex?.message ?? 'something went wrong');
         }
     }
 }
