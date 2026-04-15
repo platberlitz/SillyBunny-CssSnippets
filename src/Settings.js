@@ -86,7 +86,7 @@ export class Settings {
 
 
     async init() {
-        const response = await fetch('/scripts/extensions/third-party/SillyTavern-CssSnippets/html/settings.html');
+        const response = await fetch('/scripts/extensions/third-party/SillyBunny-CssSnippets/html/settings.html');
         if (!response.ok) {
             return console.warn('failed to fetch template: csss--settings.html');
         }

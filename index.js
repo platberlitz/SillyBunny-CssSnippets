@@ -957,7 +957,7 @@ const showCssManager = async()=>{
     }
     while (snippetDomMapper.pop());
     manager = window.open(
-        `${location.protocol}//${location.host}/scripts/extensions/third-party/SillyTavern-CssSnippets/html/manager.html`,
+        `${location.protocol}//${location.host}/scripts/extensions/third-party/SillyBunny-CssSnippets/html/manager.html`,
         'snippetManager',
         [
             'popup',
@@ -989,7 +989,7 @@ const showCssManager = async()=>{
     });
     if (!manager) return '';
     const setup = ()=>{
-        manager.document.title = 'SillyTavern CSS Snippets';
+        manager.document.title = 'SillyBunny CSS Snippets';
         manager.document.head.parentElement.setAttribute('style', document.head.parentElement.getAttribute('style'));
         manager.document.body.classList.add('csss--body');
         const base = document.createElement('base');
@@ -1033,16 +1033,16 @@ const showCssManager = async()=>{
     const editorScript = manager.document.createElement('script');
     editorScript.type = 'module';
     editorScript.innerHTML = `
-        import './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/prism/languages/css.js';
-        import { highlightText } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/prism/index.js';
-        import { createEditor } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/index.js';
-        import { highlightBracketPairs } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/matchBrackets/highlight.js';
-        import { matchBrackets } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/matchBrackets/index.js';
-        import { indentGuides } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/guides.js';
-        import { defaultCommands } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/commands.js';
-        import { autoComplete, registerCompletions, fuzzyFilter } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/autocomplete/index.js';
-        import { cursorPosition } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/cursor.js';
-        import { cssCompletion } from './scripts/extensions/third-party/SillyTavern-CssSnippets/lib/prism-code-editor/extensions/autocomplete/css/index.js';
+        import './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/prism/languages/css.js';
+        import { highlightText } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/prism/index.js';
+        import { createEditor } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/index.js';
+        import { highlightBracketPairs } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/matchBrackets/highlight.js';
+        import { matchBrackets } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/matchBrackets/index.js';
+        import { indentGuides } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/guides.js';
+        import { defaultCommands } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/commands.js';
+        import { autoComplete, registerCompletions, fuzzyFilter } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/autocomplete/index.js';
+        import { cursorPosition } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/cursor.js';
+        import { cssCompletion } from './scripts/extensions/third-party/SillyBunny-CssSnippets/lib/prism-code-editor/extensions/autocomplete/css/index.js';
 
         /**
          *
@@ -1224,7 +1224,7 @@ const showCssManager = async()=>{
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); {
                 a.href = url;
-                a.download = `SillyTavern-CSS-Snippets-${new Date().toISOString()}.json`;
+                a.download = `SillyBunny-CSS-Snippets-${new Date().toISOString()}.json`;
                 a.click();
             }
         }
