@@ -83,8 +83,28 @@ const initSettings = ()=>{
         }
     }
 };
+const CSSS_WINDOW_KEY = 'csss--window-size';
+
+const loadWindowSize = ()=>{
+    try {
+        const saved = localStorage.getItem(CSSS_WINDOW_KEY);
+        if (saved) return JSON.parse(saved);
+    } catch { /* empty */ }
+    return null;
+};
+
+const saveWindowSize = ()=>{
+    if (!manager) return;
+    try {
+        localStorage.setItem(CSSS_WINDOW_KEY, JSON.stringify({
+            width: manager.outerWidth,
+            height: manager.outerHeight,
+        }));
+    } catch { /* empty */ }
+};
+
 const init = async()=>{
-    const h4 = document.querySelector('#CustomCSS-block > h4');
+    const h4 = document.querySelector('#CustomCSS-block > h4') || document.querySelector('#CustomCSS-block .inline-drawer-toggle');
     const btn = document.createElement('span'); {
         btn.classList.add('csss--trigger');
         btn.classList.add('menu_button');
@@ -956,13 +976,14 @@ const showCssManager = async()=>{
         return '';
     }
     while (snippetDomMapper.pop());
+    const savedSize = loadWindowSize();
     manager = window.open(
         `${location.protocol}//${location.host}/scripts/extensions/third-party/SillyBunny-CssSnippets/html/manager.html`,
         'snippetManager',
         [
             'popup',
-            'innerWidth=700',
-            'innerHeight=500',
+            'innerWidth=' + (savedSize?.width || 700),
+            'innerHeight=' + (savedSize?.height || 500),
         ].join(','),
     );
     await new Promise(resolve=>{
@@ -986,6 +1007,9 @@ const showCssManager = async()=>{
         console.log('[CSSS]', 'UNLOAD (no action)', evt);
         isUnloaded = true;
         settings.snippetList.filter(it=>it.isWatching).forEach(it=>it.stopEditLocally());
+    });
+    manager.addEventListener('resize', ()=>{
+        saveWindowSize();
     });
     if (!manager) return '';
     const setup = ()=>{
